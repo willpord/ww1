@@ -25,6 +25,7 @@ france = country("#")
 russia = country("!")
 austriahungary = country("(")
 ottomanempire = country("+")
+neutral = country("%")
 
 symbols = {
     "&":uk,
@@ -36,6 +37,9 @@ symbols = {
     "!":russia,
     "(":austriahungary,
     "+":ottomanempire,
+    "\n":"newline",
+    "a":"newline",
+    "%":neutral,
 }
 
 objmap = []
@@ -44,4 +48,9 @@ def coordstoobj():
     for i, val in enumerate(map):
         for j in val:
             lcoords = (j,i)
+            if j == ' ' or j == "a" or j == "\n":
+                
+                continue
             line.append(province(lcoords, symbols[j], "_"))
+coordstoobj()
+print(objmap)
