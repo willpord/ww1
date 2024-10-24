@@ -45,12 +45,16 @@ symbols = {
 objmap = []
 line = []
 def coordstoobj():
+    line = []
     for i, val in enumerate(map):
         for j in val:
             lcoords = (j,i)
-            if j == ' ' or j == "a" or j == "\n":
-                
+            if j == ' ':
                 continue
+            if j == "a" or j == "\n":
+                objmap.append(line)
+                line = []
             line.append(province(lcoords, symbols[j], "_"))
+            
 coordstoobj()
 print(objmap)
