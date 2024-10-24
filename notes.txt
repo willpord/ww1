@@ -1,0 +1,8 @@
+https://github.com/willpord/ww1
+
+figure out how to use git for vscode so you dont have to manually update everything
+
+figure out how to use json so the main python file isnt so cluttered. 
+for the conversion part just loop through and replace characters with some object. 
+decide whether or not to include terrain. 
+figure out how the province/map system is going to work beforehand.
