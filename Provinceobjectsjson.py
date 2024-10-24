@@ -46,18 +46,17 @@ symbols = {
 objmap = []
 line = []
 def coordstoobj():
-    line = []
     for y, l in enumerate(map):
+        line = []
         for x, n in enumerate(l):
             lcoords = (x,y)
-            if n == "a" or n == "\n":
-                objmap.append(line)
-                line = []
             line.append({
                 "coords":(x,y),
                 "owner":symbols[n],
                 "terrain":"_",
             })
-            
+        objmap.append(line)
 coordstoobj()
-print(json.dumps(objmap))
+print(objmap[4][5])
+
+#print(json.dumps(objmap))
