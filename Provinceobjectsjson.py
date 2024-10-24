@@ -28,33 +28,36 @@ ottomanempire = country("+")
 neutral = country("%")
 
 symbols = {
-    "&":uk,
-    "$":germany,
-    "^":serbia,
-    "*":italy,
-    "@":bulgaria,
-    "#":france,
-    "!":russia,
-    "(":austriahungary,
-    "+":ottomanempire,
+    "&":"uk",
+    "$":"germany",
+    "^":"serbia",
+    "*":"italy",
+    "@":"bulgaria",
+    "#":"france",
+    "!":"russia",
+    "(":"austriahungary",
+    "+":"ottomanempire",
     "\n":"newline",
     "a":"newline",
-    "%":neutral,
+    "%":"neutral",
+    " ":"ocean"
 }
 
 objmap = []
 line = []
 def coordstoobj():
     line = []
-    for i, val in enumerate(map):
-        for j in val:
-            lcoords = (j,i)
-            if j == ' ':
-                continue
-            if j == "a" or j == "\n":
+    for y, l in enumerate(map):
+        for x, n in enumerate(l):
+            lcoords = (x,y)
+            if n == "a" or n == "\n":
                 objmap.append(line)
                 line = []
-            line.append(province(lcoords, symbols[j], "_"))
+            line.append({
+                "coords":(x,y),
+                "owner":symbols[n],
+                "terrain":"_",
+            })
             
 coordstoobj()
-print(objmap)
+print(json.dumps(objmap))
