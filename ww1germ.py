@@ -23,9 +23,9 @@ class military:
 
     def __str__(self):
         return f"""
-        Soldiers: {self.soldiers}
-        Morale: {self.morale}%
-        Salary: {self.salary}$ Per month
+Soldiers: {"{:,}".format(self.soldiers)}
+Morale: {self.morale}%
+Salary: {"{:,}".format(self.salary)}$ Per month
 """
 
 
@@ -46,58 +46,52 @@ class government:
         self,
     ):
         self.stability += (
-            15 - self.taxrate
-        )  # put more in depth stability (how many recruits, economic performance, losing war, etc.)
+            self.stability - (1 / 100 * (self.taxrate + 20) ** 2 + 10)
+        ) / 2
+        # add other factors to stability, add domestic politics
 
-        def __str__(self):
-            report = f"""
+    def __str__(self):
+        return f"""
 Government Report:
-Population: {self.population}
+Population: {"{:,}".format(self.population)}
 Tax: {self.taxrate}%
-Political Unrest: {100 - self.stability}
+Political Unrest: {100 - self.stability}%
 """
-            return report
 
 
-class economy:
+class Economy:
     def __init__(
         self,
         money,
         income=None,
         costs=None,
         netProfit=None,
+        Parent=None,
     ):
         self.money = money
         self.income = income
         self.costs = costs
         self.netProfit = netProfit
+        self.Parent = Parent
 
-    def update(self, parent):
-        self.income = parent.govt.population * parent.govt.taxrate
-        self.costs = parent.army.soldiers * parent.army.salary + parent.tech.budget
+    def update(self, Parent):
+        self.income = Parent.Govt.population * Parent.Govt.taxrate
+        self.costs = Parent.Army.soldiers * Parent.Army.salary + Parent.Tech.budget
         self.netProfit = self.income - self.costs
         self.money += self.netProfit
-        print("__str__() has been defined")
 
     def __str__(self):
         return f"""
 Economic report:
-Profit: {self.netProfit}
-        
-Administration:
-Tax Revenue: {parent.govt.population * parent.govt.taxrate}
-War Bonds:
-War Bond Interest:
-
-Military:
-Personnel Costs: {parent.army.soldiers * parent.army.salary}
-
-Technology:
-Research Budget: {parent.tech.budget}
-        """
+Profit: {"{:,}".format(self.netProfit)}
+Tax Revenue: {"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
+Costs: {"{:,}".format(self.costs)}
+Personnel Costs: {"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
+Research Budget: {"{:,}".format(self.Parent.Tech.budget)}
+"""
 
 
-class technology:
+class Technology:
     def __init__(
         self,
         progress=0,
@@ -112,28 +106,30 @@ class technology:
 class countries:
     def __init__(
         self,
-        govt,
-        econ,
-        tech,
-        army,
+        Govt,
+        Econ,
+        Tech,
+        Army,
         name,
         id,
         symbol,
     ):
-        self.govt = govt
-        self.econ = econ
-        self.tech = tech
-        self.army = army
+        self.Govt = Govt
+        self.Econ = Econ
+        self.Tech = Tech
+        self.Army = Army
         self.name = name
         self.id = id
         self.symbol = symbol
 
+        self.Econ.Parent = self
+
     def turn(self):
-        self.econ.update(self)
-        self.govt.update()
+        self.Econ.update(self)
+        self.Govt.update()
+        print("new turn")
         while True:
-            print("new turn")
-            actionInput = input("What's your next move?: ")
+            actionInput = input("What's your next move?: ").lower().strip()
             action = actionInput.split(" ")
             if len(action) > 1:
                 for i in nations:
@@ -154,32 +150,43 @@ ipad = 2 points and 1 child
                               """
                         )
 
-                    self.tech.budget += int(action[1])
-                    print(f"Research and Development budget set to {self.tech.budget}")
+                    self.Tech.budget += int(action[1])
+                    print(
+                        "Research and Development budget set to {:,}".format(
+                            self.Tech.budget
+                        )
+                    )
                 case "recruit":
-                    if action[1] * self.army.salary > self.econ.money:
+                    if int(action[1]) * self.Army.salary > self.Econ.money:
                         print(
-                            f"You can not afford to pay {action[1]} soldiers. The max you can afford is {round(self.econ.money/self.army.salary)}"
+                            "You can not afford to pay {:,} soldiers. The max you can afford is {:,} soldiers".format(
+                                int(action[1]),
+                                round(self.Econ.money / self.Army.salary),
+                            )
                         )
                         break
-                    self.army.soldiers += action[1]
+                    self.Army.soldiers += int(action[1])
                     print(
-                        f"you recruited {action[1]} soldiers, reducing your monthly income by ${action[1] * self.army.salary}"
+                        "you recruited {:,} soldiers, reducing your monthly income by ${:,}".format(
+                            int(action[1]), int(action[1]) * self.Army.salary
+                        )
                     )
                 case "tax":
-                    self.govt.taxrate = action[1]
+                    self.Govt.taxrate = int(action[1])
                     print(f"Taxes have been set to {action[1]}%")
                     print(
-                        f"Tax revenue increased to {self.govt.population * self.govt.taxrate}"
+                        "Tax revenue increased to ${:,}".format(
+                            self.Govt.population * self.Govt.taxrate
+                        )
                     )
                 case "economy":
-                    
+                    print(str(self.Econ))
                 case "army":
-                    print(str(self.army))
+                    print(str(self.Army))
                 case "government":
-                    print(str(self.govt))
+                    print(str(self.Govt))
                 case "map":
-                    showpolmap(str(0.01))
+                    showpolmap(0.01)
                 case "end":
                     # end turn behavior
                     break
@@ -189,15 +196,15 @@ ipad = 2 points and 1 child
                     print(f"command '{action[0]}' not found")
 
     def attack(self, defender):
-        attackpower = self.army.morale * self.tech.points
-        defendpower = defender.army.morale * defender.tech.points
-        print(self.army.soldiers * attackpower + defender.army.soldiers * defendpower)
+        attackpower = self.Army.morale * self.Tech.points
+        defendpower = defender.Army.morale * defender.Tech.points
+        print(self.Army.soldiers * attackpower + defender.Army.soldiers * defendpower)
 
 
 france = countries(
     government(population=40_000_000, alliance="allies"),
-    economy(money=150_000_000_000),
-    technology(),
+    Economy(money=150_000_000_000),
+    Technology(),
     military(soldiers=4_000_000),
     name="france",
     id=0,
@@ -205,8 +212,8 @@ france = countries(
 )
 uk = countries(
     government(population=45_000_000, alliance="allies"),
-    economy(money=225_000_000_000),
-    technology(),
+    Economy(money=225_000_000_000),
+    Technology(),
     military(soldiers=730_000),
     name="uk",
     id=1,
@@ -214,8 +221,8 @@ uk = countries(
 )
 serbia = countries(
     government(population=4_500_000, alliance="allies"),
-    economy(money=8_000_000),
-    technology(),
+    Economy(money=8_000_000),
+    Technology(),
     military(soldiers=707_000),
     name="serbia",
     id=2,
@@ -223,8 +230,8 @@ serbia = countries(
 )
 russia = countries(
     government(population=167_000_000, alliance="allies"),
-    economy(money=232_000_000),
-    technology(),
+    Economy(money=232_000_000),
+    Technology(),
     military(soldiers=5_500_000),
     name="russia",
     id=3,
@@ -232,8 +239,8 @@ russia = countries(
 )
 italy = countries(
     government(population=36_000_000, alliance="allies"),
-    economy(money=70_000_000),
-    technology(),
+    Economy(money=70_000_000),
+    Technology(),
     military(soldiers=1_200_000),
     name="italy",
     id=4,
@@ -241,8 +248,8 @@ italy = countries(
 )
 austriahungary = countries(
     government(population=52_000_000, alliance="axis"),
-    economy(money=120_000_000_000),
-    technology(),
+    Economy(money=120_000_000_000),
+    Technology(),
     military(soldiers=3_000_000),
     name="austriahungary",
     id=5,
@@ -250,8 +257,8 @@ austriahungary = countries(
 )
 germany = countries(
     government(population=68_000_000, alliance="axis"),
-    economy(money=237_000_000_000),
-    technology(),
+    Economy(money=237_000_000_000),
+    Technology(),
     military(soldiers=3_800_000),
     name="germany",
     id=6,
@@ -259,8 +266,8 @@ germany = countries(
 )
 bulgaria = countries(
     government(population=4_700_000, alliance="axis"),
-    economy(money=11_000_000_000),
-    technology(),
+    Economy(money=11_000_000_000),
+    Technology(),
     military(soldiers=600_000),
     name="bulgaria",
     id=7,
@@ -268,8 +275,8 @@ bulgaria = countries(
 )
 ottomanempire = countries(
     government(population=23_000_000, alliance="axis"),
-    economy(money=30_000_000_000),
-    technology(),
+    Economy(money=30_000_000_000),
+    Technology(),
     military(soldiers=1_000_000),
     name="ottomanempire",
     id=8,
