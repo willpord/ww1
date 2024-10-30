@@ -6,9 +6,7 @@ import json
 counter = 2
 nations = []
 
-with open("ww1game\map_data.json", "r") as f:
-    map_data = json.load(f)
-
+map_data = ""
 
 class military:
     def __init__(
@@ -63,27 +61,28 @@ class Economy:
     def __init__(
         self,
         money,
-        income=None,
-        costs=None,
-        netProfit=None,
+        income=0,
+        costs=0,
         Parent=None,
     ):
         self.money = money
         self.income = income
         self.costs = costs
-        self.netProfit = netProfit
         self.Parent = Parent
 
-    def update(self, Parent):
-        self.income = Parent.Govt.population * Parent.Govt.taxrate
-        self.costs = Parent.Army.soldiers * Parent.Army.salary + Parent.Tech.budget
-        self.netProfit = self.income - self.costs
-        self.money += self.netProfit
+    def update(self,):
+        self.income = self.Parent.Govt.population * self.Parent.Govt.taxrate
+        self.costs = self.Parent.Army.soldiers * self.Parent.Army.salary + self.Parent.Tech.budget
+
+    def newturn(self,):
+        self.update()
+        self.money += self.income - self.costs
+        self.update()
 
     def __str__(self):
-        return f"""
-Economic report:
-Profit: {"{:,}".format(self.netProfit)}
+        return f"""Economic report:
+Total available wealth: {"{:,}".format(self.money)}
+Profit: {"{:,}".format(self.income - self.costs)}
 Tax Revenue: {"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
 Costs: {"{:,}".format(self.costs)}
 Personnel Costs: {"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
@@ -125,10 +124,11 @@ class countries:
         self.Econ.Parent = self
 
     def turn(self):
-        self.Econ.update(self)
+        self.Econ.newturn()
         self.Govt.update()
         print("new turn")
         while True:
+            self.Econ.update()
             actionInput = input("What's your next move?: ").lower().strip()
             action = actionInput.split(" ")
             if len(action) > 1:
@@ -142,7 +142,7 @@ class countries:
                     # come back maybe least priority
                     pass
                 case "research":
-                    if action[1] == "shop":  # working on all the reports 10/26/2024
+                    if action[1] == "shop":
                         print(
                             """
 tanks = 100 points and 20 progress                              
@@ -325,10 +325,7 @@ print("Press 6 to choose Austria Hungary      Medium")
 print("Press 7 to choose Germany              Easy")
 print("Press 8 to choose Bulgaria             Hard")
 print("Press 9 to choose Ottoman Empire       Medium")
-nationselect = int(input("Choose your nation: ")) - 1
-for i in nations:
-    if i.id == nationselect:
-        player = i
+player = nations[int(input("Choose your nation: ")) - 1]
 
 print(f"You have chosen {player.name}")
 print("Type 'tutorial' at any action point to get a tutorial.")
