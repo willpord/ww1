@@ -23,6 +23,35 @@ objmap = []
 line = []
 
 
+def francetorussia():
+    for j, w in enumerate(map):
+        for i, n in enumerate(w):
+            if i > 40 and n == "#":
+                map[j][i] = "/"
+
+
+def austriatootto():
+    for j, w in enumerate(map):
+        for i, n in enumerate(w):
+            if i > 69 and n == "(":
+                map[j][i] = "+"
+
+
+francetorussia()
+austriatootto()
+
+
+def mapper():
+    stringa = ""
+    for i in map:
+        for j in i:
+            stringa = stringa + j
+    return stringa
+
+
+print(mapper())
+
+
 def coordstoobj():
     for y, l in enumerate(map):
         line = []
@@ -37,8 +66,10 @@ def coordstoobj():
         objmap.append(line)
 
 
+"""
 coordstoobj()
 print(json.dumps(objmap))
 
 with open("ww1game\map_data.json", "w") as f:
     json.dump(objmap, f, indent=4)
+"""
