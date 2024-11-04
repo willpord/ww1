@@ -6,7 +6,27 @@ import json
 counter = 2
 nations = []
 
-map_data = ""
+with open("ww1game\map_data.json", "r") as f:
+    map_data = json.load(f)
+
+rows = len(map_data)
+cols = len(map_data[0])
+
+symbols = {
+    "&": "uk",
+    "$": "germany",
+    "^": "serbia",
+    "*": "italy",
+    "@": "bulgaria",
+    "#": "france",
+    "!": "russia",
+    "(": "austriahungary",
+    "+": "ottomanempire",
+    "\n": "newline",
+    "%": "neutral",
+    " ": "ocean",
+}
+
 
 class military:
     def __init__(
@@ -70,23 +90,31 @@ class Economy:
         self.costs = costs
         self.Parent = Parent
 
-    def update(self,):
+    def update(
+        self,
+    ):
         self.income = self.Parent.Govt.population * self.Parent.Govt.taxrate
-        self.costs = self.Parent.Army.soldiers * self.Parent.Army.salary + self.Parent.Tech.budget
+        self.costs = (
+            self.Parent.Army.soldiers * self.Parent.Army.salary
+            + self.Parent.Tech.budget
+        )
 
-    def newturn(self,):
+    def newturn(
+        self,
+    ):
         self.update()
         self.money += self.income - self.costs
         self.update()
 
     def __str__(self):
-        return f"""Economic report:
-Total available wealth: {"{:,}".format(self.money)}
-Profit: {"{:,}".format(self.income - self.costs)}
-Tax Revenue: {"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
-Costs: {"{:,}".format(self.costs)}
-Personnel Costs: {"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
-Research Budget: {"{:,}".format(self.Parent.Tech.budget)}
+        return f"""
+Economic report:
+Total available wealth: ${"{:,}".format(self.money)}
+Profit: ${"{:,}".format(self.income - self.costs)}
+Tax Revenue: ${"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
+Costs: ${"{:,}".format(self.costs)}
+Personnel Costs: ${"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
+Research Budget: ${"{:,}".format(self.Parent.Tech.budget)}
 """
 
 
@@ -137,7 +165,7 @@ class countries:
                         subject = i
             match action[0]:
                 case "attack":
-                    self.attack(subject)
+                    self.attack(subject, int(action[2]))
                 case "fortify":
                     # come back maybe least priority
                     pass
@@ -150,12 +178,13 @@ ipad = 2 points and 1 child
                               """
                         )
 
-                    self.Tech.budget += int(action[1])
-                    print(
-                        "Research and Development budget set to {:,}".format(
-                            self.Tech.budget
+                    elif action[1].isnumeric() == True:
+                        self.Tech.budget = int(action[1])
+                        print(
+                            "Research and Development budget set to {:,}".format(
+                                self.Tech.budget
+                            )
                         )
-                    )
                 case "recruit":
                     if int(action[1]) * self.Army.salary > self.Econ.money:
                         print(
@@ -187,6 +216,10 @@ ipad = 2 points and 1 child
                     print(str(self.Govt))
                 case "map":
                     showpolmap(0.01)
+                case "tutorial":
+                    print(
+                        "Welcome to ww1germ.py. gameplay is organized into turns, where whenever it is your turn you may do an action. type help for all actions"
+                    )
                 case "end":
                     # end turn behavior
                     break
@@ -195,10 +228,52 @@ ipad = 2 points and 1 child
                 case _:
                     print(f"command '{action[0]}' not found")
 
-    def attack(self, defender):
-        attackpower = self.Army.morale * self.Tech.points
-        defendpower = defender.Army.morale * defender.Tech.points
-        print(self.Army.soldiers * attackpower + defender.Army.soldiers * defendpower)
+    def attack(self, defender, force):
+        attackpower = 1 + self.Army.morale * 1 + self.Tech.points
+        defendpower = 1 + defender.Army.morale * 1 + defender.Tech.points
+        balance = (
+            abs(force * attackpower - defender.Army.soldiers * defendpower)
+            / ((force * attackpower + defender.Army.soldiers * defendpower) / 2)
+            * 100
+        )  # make this whole section make more sense at some point
+        print(balance)
+        neighbors = []
+        for i in findborders(self.symbol, defender.symbol):
+            neighbors.append(i)
+        self.Army.soldiers -= force * balance
+        print(f"You lost {force * balance} soldiers")
+        defender.Army.soldiers -= force * (100 - balance)
+        print(f"They lost {force * balance} soldiers")
+
+        # map_data[i[0]][i[1]]["symbol"] = self.symbol
+        # map_data[i[0]][i[1]]["owner"] = self.name
+
+        print(
+            f"You have conqured {len(findborders(self.symbol, defender.symbol))} provinces"
+        )
+
+
+def findborders(owner, target):
+    neighbors = []
+    rows = len(map_data)
+    cols = len(map_data[0])
+    for y in range(rows):
+        for x in range(cols):
+            if map_data[y][x]["symbol"] == owner:
+                for i in checkneighbors(x, y, target):
+                    if i in neighbors:
+                        continue
+                    neighbors.append(i)
+    return neighbors
+
+
+def checkneighbors(x, y, target):
+    neighbors = []
+    for dx in range(-1, 2, 2):
+        for dy in range(-1, 2, 2):
+            if map_data[y + dy][x + dx]["symbol"] == target:
+                neighbors.append((y + dy, x + dx))
+    return neighbors
 
 
 france = countries(
