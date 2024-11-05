@@ -231,22 +231,27 @@ ipad = 2 points and 1 child
     def attack(self, defender, force):
         attackpower = 1 + self.Army.morale * 1 + self.Tech.points
         defendpower = 1 + defender.Army.morale * 1 + defender.Tech.points
-        balance = (
-            abs(force * attackpower - defender.Army.soldiers * defendpower)
-            / ((force * attackpower + defender.Army.soldiers * defendpower) / 2)
-            * 100
-        )  # make this whole section make more sense at some point
-        print(balance)
+        # ratio = (
+        #    abs(force * attackpower - defender.Army.soldiers * defendpower)
+        #    / ((force * attackpower + defender.Army.soldiers * defendpower) / 2)
+        #    * 100
+        # )  # make this whole section make more sense at some point
+        # print(ratio)
         neighbors = []
         for i in findborders(self.symbol, defender.symbol):
             neighbors.append(i)
-        self.Army.soldiers -= force * balance
-        print(f"You lost {force * balance} soldiers")
-        defender.Army.soldiers -= force * (100 - balance)
-        print(f"They lost {force * balance} soldiers")
+            map_data[i[0]][i[1]]["symbol"] = self.symbol
+            map_data[i[0]][i[1]]["owner"] = self.name
 
-        # map_data[i[0]][i[1]]["symbol"] = self.symbol
-        # map_data[i[0]][i[1]]["owner"] = self.name
+        # ratio = random.uniform(0.5, 0.8)
+        atkloss = round(force * random.uniform(0.5, 0.8))
+        defloss = round(force * random.uniform(0.5, 0.8))
+
+        self.Army.soldiers -= atkloss
+        defender.Army.soldiers -= defloss
+
+        print("You lost {:,} soldiers".format(atkloss))
+        print(defender.name.capitalize(), "lost {:,} soldiers".format(defloss))
 
         print(
             f"You have conqured {len(findborders(self.symbol, defender.symbol))} provinces"
