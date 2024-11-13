@@ -6,8 +6,9 @@ import json
 counter = 2
 nations = []
 
-with open("ww1game\map_data.json", "r") as f:
-    map_data = json.load(f)
+#with open("ww1game\map_data.json", "r") as f:
+#    map_data = json.load(f)
+map_data = ["","","",]
 
 rows = len(map_data)
 cols = len(map_data[0])
@@ -63,9 +64,7 @@ class government:
     def update(
         self,
     ):
-        self.stability += (
-            self.stability - (1 / 100 * (self.taxrate + 20) ** 2 + 10)
-        ) / 2
+        self.stability += (((1 / 100) * (self.taxrate + 20) ** 2 + 10) - self.stability) * 0.1
         # add other factors to stability, add domestic politics
 
     def __str__(self):
@@ -73,7 +72,7 @@ class government:
 Government Report:
 Population: {"{:,}".format(self.population)}
 Tax: {self.taxrate}%
-Political Unrest: {100 - self.stability}%
+Stability: {100 - self.stability}%
 """
 
 
@@ -218,7 +217,7 @@ ipad = 2 points and 1 child
                     showpolmap(0.01)
                 case "tutorial":
                     print(
-                        "Welcome to ww1germ.py. gameplay is organized into turns, where whenever it is your turn you may do an action. type help for all actions"
+                        "Welcome to ww1germ.py. there is no tutorial rn my bad."
                     )
                 case "end":
                     # end turn behavior
@@ -362,7 +361,6 @@ ottomanempire = countries(
     id=8,
     symbol="+",
 )
-# add development somehow
 nations = [
     france,
     uk,
@@ -373,7 +371,6 @@ nations = [
     germany,
     bulgaria,
     ottomanempire,
-    #    player,
 ]
 
 
