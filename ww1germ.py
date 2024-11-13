@@ -54,17 +54,20 @@ class government:
         population,
         alliance,
         taxerate=15,
-        stability=100,
+        stability=0,
+        targetstability=100,
     ):
         self.population = population
         self.alliance = alliance
         self.taxrate = taxerate
         self.stability = stability
+        self.targetstability = targetstability
 
     def update(
         self,
     ):
-        self.stability += (((1 / 100) * (self.taxrate + 20) ** 2 + 10) - self.stability) * 0.1
+        self.targetstability = (1 / 100) * (self.taxrate + 20) ** 2 + 10
+        self.stability = self.stability + (self.targetstability- self.stability) * 0.6
         # add other factors to stability, add domestic politics
 
     def __str__(self):
@@ -72,7 +75,8 @@ class government:
 Government Report:
 Population: {"{:,}".format(self.population)}
 Tax: {self.taxrate}%
-Stability: {100 - self.stability}%
+Unrest: {round(self.stability, 2)}%
+targ: {self.targetstability}
 """
 
 
