@@ -6,12 +6,8 @@ import json
 counter = 2
 nations = []
 
-#with open("ww1game\map_data.json", "r") as f:
-#    map_data = json.load(f)
-map_data = ["","","",]
-
-rows = len(map_data)
-cols = len(map_data[0])
+with open("ww1game\map_data.json", "r") as f:
+    map_data = json.load(f)
 
 symbols = {
     "&": "uk",
@@ -35,10 +31,18 @@ class military:
         soldiers,
         morale=1,
         salary=10,  # balance salary and all these default values at some point
+        provincedefence=dict(),
     ):
         self.soldiers = soldiers
         self.morale = morale
         self.salary = salary
+        self.provincedefence = provincedefence
+
+    def update(self):
+        pass
+
+    def new_turn(self):
+        pass
 
     def __str__(self):
         return f"""
@@ -56,26 +60,30 @@ class government:
         taxerate=15,
         stability=0,
         targetstability=100,
+        provincecount=0,
     ):
         self.population = population
         self.alliance = alliance
         self.taxrate = taxerate
         self.stability = stability
         self.targetstability = targetstability
+        self.provincecount = provincecount
 
     def update(
         self,
     ):
         self.targetstability = (1 / 100) * (self.taxrate + 20) ** 2 + 10
-        self.stability = self.stability + (self.targetstability- self.stability) * 0.6
         # add other factors to stability, add domestic politics
+
+    def new_turn(self):
+        self.stability = self.stability + (self.targetstability - self.stability) * 0.6
 
     def __str__(self):
         return f"""
 Government Report:
-Population: {"{:,}".format(self.population)}
-Tax: {self.taxrate}%
-Unrest: {round(self.stability, 2)}%
+Population Estimate: {"{:,}".format(self.population)}
+Tax Rate: {self.taxrate}%
+Political Unrest: {round(self.stability, 2)}%
 targ: {self.targetstability}
 """
 
@@ -102,7 +110,7 @@ class Economy:
             + self.Parent.Tech.budget
         )
 
-    def newturn(
+    def new_turn(
         self,
     ):
         self.update()
@@ -112,11 +120,11 @@ class Economy:
     def __str__(self):
         return f"""
 Economic report:
-Total available wealth: ${"{:,}".format(self.money)}
-Profit: ${"{:,}".format(self.income - self.costs)}
+Total Available Wealth: ${"{:,}".format(self.money)}
+Total Profit: ${"{:,}".format(self.income - self.costs)}
 Tax Revenue: ${"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
-Costs: ${"{:,}".format(self.costs)}
-Personnel Costs: ${"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
+Total Costs: ${"{:,}".format(self.costs)}
+Military Personnel Costs: ${"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
 Research Budget: ${"{:,}".format(self.Parent.Tech.budget)}
 """
 
@@ -127,10 +135,20 @@ class Technology:
         progress=0,
         points=0,
         budget=0,
+        combat_bonus=1,
     ):
         self.progress = progress
         self.points = points
         self.budget = budget
+        self.combat_bonus = combat_bonus
+
+    def update(self):
+        pass
+
+    def new_turn(self):
+        research_gain = self.budget / 1000
+        self.progress += research_gain
+        self.points += research_gain / 1000
 
 
 class countries:
@@ -155,10 +173,13 @@ class countries:
         self.Econ.Parent = self
 
     def turn(self):
-        self.Econ.newturn()
-        self.Govt.update()
+        self.Econ.new_turn()
+        self.Govt.new_turn()
+        self.Tech.new_turn()
+        self.Army.new_turn()
         print("new turn")
         while True:
+            subject = None
             self.Econ.update()
             actionInput = input("What's your next move?: ").lower().strip()
             action = actionInput.split(" ")
@@ -168,7 +189,18 @@ class countries:
                         subject = i
             match action[0]:
                 case "attack":
-                    self.attack(subject, int(action[2]))
+                    if subject == None:
+                        print(f"{action[1]} is not a country")
+                        break
+                    if len(action) <= 2:
+                        print(
+                            "Include the number of people invading after target (assuming 1 person)"
+                        )
+                        self.attack(subject, 1)
+                        break
+                    else:
+                        print(subject)
+                        self.attack(subject, int(action[2].replace(",", "")))
                 case "fortify":
                     # come back maybe least priority
                     pass
@@ -218,47 +250,70 @@ ipad = 2 points and 1 child
                 case "government":
                     print(str(self.Govt))
                 case "map":
-                    showpolmap(0.01)
+                    if len(action) > 1:
+                        showpolmap()
+                    else:
+                        showpolmap(0.01)
                 case "tutorial":
-                    print(
-                        "Welcome to ww1germ.py. there is no tutorial rn my bad."
-                    )
+                    print("Welcome to ww1germ.py. there is no tutorial rn my bad.")
                 case "end":
                     # end turn behavior
                     break
-                case "escape":
-                    raise
+                case "escape" | "python" | "clear":
+                    raise ""
                 case _:
                     print(f"command '{action[0]}' not found")
 
     def attack(self, defender, force):
-        attackpower = 1 + self.Army.morale * 1 + self.Tech.points
-        defendpower = 1 + defender.Army.morale * 1 + defender.Tech.points
-        # ratio = (
-        #    abs(force * attackpower - defender.Army.soldiers * defendpower)
-        #    / ((force * attackpower + defender.Army.soldiers * defendpower) / 2)
-        #    * 100
-        # )  # make this whole section make more sense at some point
-        # print(ratio)
-        neighbors = []
-        for i in findborders(self.symbol, defender.symbol):
-            neighbors.append(i)
-            map_data[i[0]][i[1]]["symbol"] = self.symbol
-            map_data[i[0]][i[1]]["owner"] = self.name
+        if force > self.Army.soldiers:
+            print("You do not have that many soldiers, but infinite soldiers for debug")
+        if findtotalprovinces(defender) == 0:
+            print(f"{defender.name} has been defeated")
+        # problem area vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+        # fmt: off
+        attackpower = force * self.Tech.combat_bonus * random.uniform(0.5, 0.8)
+        if defender.Army.soldiers <= 0:
+            print(f"{defender.name} has 0 soldiers; iron out this exception once this function makes some semblance of sense")
+            return
+        defenderpower = defender.Army.soldiers / 5 * defender.Tech.combat_bonus * random.uniform(0.5, 0.8)
+        # fmt: on
 
-        # ratio = random.uniform(0.5, 0.8)
-        atkloss = round(force * random.uniform(0.5, 0.8))
-        defloss = round(force * random.uniform(0.5, 0.8))
+        ratio = attackpower / defenderpower
+        atkloss = min(round(attackpower / ratio), force)
+        defloss = round(defenderpower * ratio)  # calculate casualties
+        print(f"Ratio: {ratio}")
 
+        frontlinepower[self][defender] += ratio
+        frontlinepower[defender][self] -= ratio
+        provincegain = 0
+
+        # find the number of provinces gained
+        provincegain = math.floor(frontlinepower[self][defender])
+        frontlinepower[self][defender] = frontlinepower[self][defender] - math.floor(
+            frontlinepower[self][defender]
+        )
+        frontlinepower[defender][self] = frontlinepower[defender][self] + math.floor(
+            frontlinepower[defender][self]
+        )
+
+        # problem area ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        for i in range(
+            provincegain
+        ):  # find and transfer ownership of conqured provinces to player
+            neighbors = findborders(self.symbol, defender.symbol)
+            if len(neighbors) <= 0:
+                break
+            randomprovince = neighbors[random.randint(0, len(neighbors) - 1)]
+            map_data[randomprovince[0]][randomprovince[1]]["owner"] = self
+            map_data[randomprovince[0]][randomprovince[1]]["symbol"] = self.symbol
         self.Army.soldiers -= atkloss
         defender.Army.soldiers -= defloss
-
         print("You lost {:,} soldiers".format(atkloss))
-        print(defender.name.capitalize(), "lost {:,} soldiers".format(defloss))
-
         print(
-            f"You have conqured {len(findborders(self.symbol, defender.symbol))} provinces"
-        )
+            defender.name.capitalize(), "lost {:,} soldiers".format(defloss)
+        )  # output results of battle
+
+        print(f"You have conqured {provincegain} provinces (supposedly)")
 
 
 def findborders(owner, target):
@@ -365,6 +420,7 @@ ottomanempire = countries(
     id=8,
     symbol="+",
 )
+
 nations = [
     france,
     uk,
@@ -376,6 +432,21 @@ nations = [
     bulgaria,
     ottomanempire,
 ]
+
+frontlinepower = dict()
+for i in nations:
+    frontlinepower[i] = dict()
+    for n in nations:
+        frontlinepower[i][n] = 0
+
+
+def findtotalprovinces(target):
+    count = 0
+    for i in map_data:
+        for j in i:
+            if j["symbol"] == target.symbol:
+                count += 1
+    return count
 
 
 def showpolmap(animatetime=0):
