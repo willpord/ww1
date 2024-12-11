@@ -3,9 +3,6 @@ import time
 import random
 import json
 
-counter = 2
-nations = []
-
 with open("ww1game\map_data.json", "r") as f:
     map_data = json.load(f)
 
@@ -22,6 +19,7 @@ symbols = {
     "\n": "newline",
     "%": "neutral",
     " ": "ocean",
+    "!": "insurgency",
 }
 
 
@@ -58,9 +56,10 @@ class government:
         population,
         alliance,
         taxerate=15,
-        stability=0,
+        stability=100,
         targetstability=100,
         provincecount=0,
+        Parent=None,
     ):
         self.population = population
         self.alliance = alliance
@@ -68,22 +67,41 @@ class government:
         self.stability = stability
         self.targetstability = targetstability
         self.provincecount = provincecount
+        self.Parent = Parent
 
-    def update(
-        self,
-    ):
-        self.targetstability = (1 / 100) * (self.taxrate + 20) ** 2 + 10
+    def start_insurgency(self):
+        provincecount, allprovince = find_total_provinces(self.Parent, returnall=True)
+        startingtile = random.choice(allprovince)
+        map_data[startingtile[1]][startingtile[0]]["symbol"] = insurgency.symbol
+        map_data[startingtile[1]][startingtile[0]]["owner"] = insurgency
+        insurgency.army.soldiers += (self.Parent.Govt.population / 10) / provincecount
+        print("An insurgency has begun (by force)!")
+
+    def update(self):
+        # fmt: off
+        # bread prices, war deaths, 
+        self.taxrate /= 100
+        taxdebuff = self.targetstability = 1 - (1 / 100) * (self.taxrate + 20) ** 2 + 10 # quadratic
+        taxdebuff = (100) / (1 + 0.93 ** (self.taxrate + math.sqrt(self.taxrate + 0.93) - 50))  # normalize (better imo)
+        self.targetstability = 100 - taxdebuff # - everything else too but mostly taxes i think
+        
+        self.taxrate *= 100
+        # fmt: on
         # add other factors to stability, add domestic politics
 
     def new_turn(self):
+        self.update()
         self.stability = self.stability + (self.targetstability - self.stability) * 0.6
+        if self.stability < 25 and random.randint(0, 100) < self.stability:
+            self.Parent.Govt.start_insurgency()
+            print("An insurgency has begun!")
 
     def __str__(self):
         return f"""
 Government Report:
 Population Estimate: {"{:,}".format(self.population)}
 Tax Rate: {self.taxrate}%
-Political Unrest: {round(self.stability, 2)}%
+Stability: {round(self.stability, 2)}%
 targ: {self.targetstability}
 """
 
@@ -106,7 +124,7 @@ class Economy:
     ):
         self.income = self.Parent.Govt.population * self.Parent.Govt.taxrate
         self.costs = (
-            self.Parent.Army.soldiers * self.Parent.Army.salary
+            self.Parent.army.soldiers * self.Parent.army.salary
             + self.Parent.Tech.budget
         )
 
@@ -124,7 +142,7 @@ Total Available Wealth: ${"{:,}".format(self.money)}
 Total Profit: ${"{:,}".format(self.income - self.costs)}
 Tax Revenue: ${"{:,}".format(self.Parent.Govt.population * self.Parent.Govt.taxrate)}
 Total Costs: ${"{:,}".format(self.costs)}
-Military Personnel Costs: ${"{:,}".format(self.Parent.Army.soldiers * self.Parent.Army.salary)}
+Military Personnel Costs: ${"{:,}".format(self.Parent.army.soldiers * self.Parent.army.salary)}
 Research Budget: ${"{:,}".format(self.Parent.Tech.budget)}
 """
 
@@ -143,6 +161,7 @@ class Technology:
         self.combat_bonus = combat_bonus
 
     def update(self):
+        self.combat_bonus = 1
         pass
 
     def new_turn(self):
@@ -157,27 +176,31 @@ class countries:
         Govt,
         Econ,
         Tech,
-        Army,
+        army,
         name,
         id,
         symbol,
+        is_player=False,
     ):
         self.Govt = Govt
         self.Econ = Econ
         self.Tech = Tech
-        self.Army = Army
+        self.army = army
         self.name = name
         self.id = id
         self.symbol = symbol
+        self.is_player = is_player
 
         self.Econ.Parent = self
+        self.Govt.Parent = self
 
     def turn(self):
+        global turn_number
         self.Econ.new_turn()
         self.Govt.new_turn()
         self.Tech.new_turn()
-        self.Army.new_turn()
-        print("new turn")
+        self.army.new_turn()
+        print(f"Turn {turn_number}")
         while True:
             subject = None
             self.Econ.update()
@@ -188,6 +211,8 @@ class countries:
                     if i.name == action[1]:
                         subject = i
             match action[0]:
+                case "insurgency":
+                    self.Govt.start_insurgency()
                 case "attack":
                     if subject == None:
                         print(f"{action[1]} is not a country")
@@ -205,15 +230,7 @@ class countries:
                     # come back maybe least priority
                     pass
                 case "research":
-                    if action[1] == "shop":
-                        print(
-                            """
-tanks = 100 points and 20 progress                              
-ipad = 2 points and 1 child   
-                              """
-                        )
-
-                    elif action[1].isnumeric() == True:
+                    if action[1].isnumeric() == True:
                         self.Tech.budget = int(action[1])
                         print(
                             "Research and Development budget set to {:,}".format(
@@ -221,18 +238,18 @@ ipad = 2 points and 1 child
                             )
                         )
                 case "recruit":
-                    if int(action[1]) * self.Army.salary > self.Econ.money:
+                    if int(action[1]) * self.army.salary > self.Econ.money:
                         print(
                             "You can not afford to pay {:,} soldiers. The max you can afford is {:,} soldiers".format(
                                 int(action[1]),
-                                round(self.Econ.money / self.Army.salary),
+                                round(self.Econ.money / self.army.salary),
                             )
                         )
                         break
-                    self.Army.soldiers += int(action[1])
+                    self.army.soldiers += int(action[1])
                     print(
                         "you recruited {:,} soldiers, reducing your monthly income by ${:,}".format(
-                            int(action[1]), int(action[1]) * self.Army.salary
+                            int(action[1]), int(action[1]) * self.army.salary
                         )
                     )
                 case "tax":
@@ -246,7 +263,7 @@ ipad = 2 points and 1 child
                 case "economy":
                     print(str(self.Econ))
                 case "army":
-                    print(str(self.Army))
+                    print(str(self.army))
                 case "government":
                     print(str(self.Govt))
                 case "map":
@@ -260,45 +277,46 @@ ipad = 2 points and 1 child
                     # end turn behavior
                     break
                 case "escape" | "python" | "clear":
-                    raise ""
+                    quit()
                 case _:
                     print(f"command '{action[0]}' not found")
 
     def attack(self, defender, force):
-        if force > self.Army.soldiers:
+        if force > self.army.soldiers:
             print("You do not have that many soldiers, but infinite soldiers for debug")
-        if findtotalprovinces(defender) == 0:
+        if find_total_provinces(defender) == 0:
             print(f"{defender.name} has been defeated")
         # problem area vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         # fmt: off
-        attackpower = force * self.Tech.combat_bonus * random.uniform(0.5, 0.8)
-        if defender.Army.soldiers <= 0:
-            print(f"{defender.name} has 0 soldiers; iron out this exception once this function makes some semblance of sense")
+        attack_power = force * self.Tech.combat_bonus * random.uniform(0.5, 0.8)
+        if defender.army.soldiers <= 0:
+            print(f"{defender.name} has 0 soldiers; iron out this exception once this function makes some semblance of sense (making their soldiers 1)")
+            defender.army.soldiers
             return
-        defenderpower = defender.Army.soldiers / 5 * defender.Tech.combat_bonus * random.uniform(0.5, 0.8)
+        defender_power = defender.army.soldiers / 5 * defender.Tech.combat_bonus * random.uniform(0.5, 0.8)
         # fmt: on
 
-        ratio = attackpower / defenderpower
-        atkloss = min(round(attackpower / ratio), force)
-        defloss = round(defenderpower * ratio)  # calculate casualties
+        ratio = attack_power / defender_power
+        atkloss = min(round(attack_power / ratio), force)
+        defloss = round(defender_power * ratio)  # calculate casualties
         print(f"Ratio: {ratio}")
 
-        frontlinepower[self][defender] += ratio
-        frontlinepower[defender][self] -= ratio
-        provincegain = 0
+        frontline_power[self][defender] += ratio
+        frontline_power[defender][self] -= ratio
+        province_gain = 0
 
         # find the number of provinces gained
-        provincegain = math.floor(frontlinepower[self][defender])
-        frontlinepower[self][defender] = frontlinepower[self][defender] - math.floor(
-            frontlinepower[self][defender]
+        province_gain = math.floor(frontline_power[self][defender])
+        frontline_power[self][defender] = frontline_power[self][defender] - math.floor(
+            frontline_power[self][defender]
         )
-        frontlinepower[defender][self] = frontlinepower[defender][self] + math.floor(
-            frontlinepower[defender][self]
+        frontline_power[defender][self] = frontline_power[defender][self] + math.floor(
+            frontline_power[defender][self]
         )
 
         # problem area ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         for i in range(
-            provincegain
+            province_gain
         ):  # find and transfer ownership of conqured provinces to player
             neighbors = findborders(self.symbol, defender.symbol)
             if len(neighbors) <= 0:
@@ -306,14 +324,14 @@ ipad = 2 points and 1 child
             randomprovince = neighbors[random.randint(0, len(neighbors) - 1)]
             map_data[randomprovince[0]][randomprovince[1]]["owner"] = self
             map_data[randomprovince[0]][randomprovince[1]]["symbol"] = self.symbol
-        self.Army.soldiers -= atkloss
-        defender.Army.soldiers -= defloss
+        self.army.soldiers -= atkloss
+        defender.army.soldiers -= defloss
         print("You lost {:,} soldiers".format(atkloss))
         print(
             defender.name.capitalize(), "lost {:,} soldiers".format(defloss)
         )  # output results of battle
 
-        print(f"You have conqured {provincegain} provinces (supposedly)")
+        print(f"You have conqured {province_gain} provinces (supposedly)")
 
 
 def findborders(owner, target):
@@ -328,6 +346,9 @@ def findborders(owner, target):
                         continue
                     neighbors.append(i)
     return neighbors
+
+
+a = random.uniform
 
 
 def checkneighbors(x, y, target):
@@ -420,6 +441,15 @@ ottomanempire = countries(
     id=8,
     symbol="+",
 )
+insurgency = countries(
+    government(population=0, alliance="insurgency"),
+    Economy(money=0),
+    Technology(),
+    military(soldiers=0),
+    name="insurgency",
+    id=9,
+    symbol="!",
+)
 
 nations = [
     france,
@@ -431,21 +461,30 @@ nations = [
     germany,
     bulgaria,
     ottomanempire,
+    insurgency,
 ]
 
-frontlinepower = dict()
+frontline_power = dict()
 for i in nations:
-    frontlinepower[i] = dict()
+    frontline_power[i] = dict()
     for n in nations:
-        frontlinepower[i][n] = 0
+        frontline_power[i][n] = 0
 
 
-def findtotalprovinces(target):
+def find_total_provinces(
+    target,
+    returnall=False,
+):
+    allprovinces = []
     count = 0
-    for i in map_data:
-        for j in i:
+    for y, i in enumerate(map_data):
+        for x, j in enumerate(i):
             if j["symbol"] == target.symbol:
+                if returnall:
+                    allprovinces.append((x, y))
                 count += 1
+    if returnall:
+        return (count, allprovinces)
     return count
 
 
@@ -478,9 +517,23 @@ print("Press 7 to choose Germany              Easy")
 print("Press 8 to choose Bulgaria             Hard")
 print("Press 9 to choose Ottoman Empire       Medium")
 player = nations[int(input("Choose your nation: ")) - 1]
+player.is_player = True
 
 print(f"You have chosen {player.name}")
 print("Type 'tutorial' at any action point to get a tutorial.")
 
+turn_number = 0
 while True:
+    turn_number += 1
     player.turn()
+while False:
+    turn_number += 1
+    france.turn()
+    uk.turn()
+    serbia.turn()
+    russia.turn()
+    italy.turn()
+    austriahungary.turn()
+    germany.turn()
+    bulgaria.turn()
+    ottomanempire.turn()
